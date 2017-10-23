@@ -1,5 +1,4 @@
 
-import time
 import pygame
 from random import randint
 from pygame.locals import *
@@ -52,28 +51,66 @@ class Node:
 
 
 def random_food():
-    return randint(1, (w / food_size) - 1) * food_size, randint(1, (h / food_size) - 1) * food_size
+    return randint(2, (w / food_size) - 1) * food_size, randint(2, (h / food_size) - 1) * food_size
+
+
+def snake():
+    t3 = Node(w / 2 - 3 * player_size, h / 2)
+    t2 = Node(w / 2 - 2 * player_size, h / 2, t3)
+    t1 = Node(w / 2 - 1 * player_size, h / 2, t2)
+    return Node(w / 2, h / 2, t1)
+
+
+def draw_square(color, x, y, size):
+    pygame.draw.rect(screen, color, [x-size/2, y-size/2, size, size])
 
 
 pygame.init()
 w, h = 800, 600
-screen = pygame.display.set_mode((w+30, h+30))
-player_size = 10
-expanded_size = 14
-food_size = 10
+screen = pygame.display.set_mode((w+60, h+60))
+player_size = 16
+expanded_size = 20
+food_size = 16
+border = 10
 
 running = 1
 direction = Direction.RIGHT
-head = Node(w/2, h/2, Node(w/2-player_size, h/2))
+head = snake()
 food_x, food_y = random_food()
 expand_points = []
 step = 0
+pause = False
+dead = False
 
 # Colors
 green = (172, 184, 80)
 gray = (101, 81, 38)
 
 while running:
+    # BACKGROUND
+    screen.fill(green)
+
+    # BORDERS
+    for x in range(10, w+60-border-10, 12):
+        pygame.draw.rect(screen, gray, [x, 10, border, border])
+        pygame.draw.rect(screen, gray, [x, h+60-border-10, border, border])
+
+    for x in range(10, h+60-border-10, 12):
+        pygame.draw.rect(screen, gray, [10, x, border, border])
+        pygame.draw.rect(screen, gray, [w+60-border-10, x, border, border])
+
+    pygame.draw.rect(screen, gray, [w+60-border-10, h + 60 - border - 10, border, border])
+
+    if dead:
+        running = 1
+        direction = Direction.RIGHT
+        head = snake()
+        food_x, food_y = random_food()
+        expand_points = []
+        step = 0
+        pause = False
+        dead = False
+
     for event in pygame.event.get():
         if event.type == QUIT:
             running = 0
@@ -86,21 +123,24 @@ while running:
                 direction = Direction.DOWN
             elif event.key == 276 and (direction == Direction.UP or direction == Direction.DOWN):
                 direction = Direction.LEFT
+            elif event.key == 32:
+                pause = not pause
+            elif event.key == 8:
+                dead = True
 
-    # BACKGROUND
-    screen.fill(green)
+    if step % 5 == 0 and not pause:
+        head.move(direction, dist=player_size)
+        if head.x <= 30 or head.x >= w or head.y <= 30 or head.y >= h:
+            dead = True
 
     # DRAW SNAKE
     node = head
     while node is not None:
-        pygame.draw.rect(screen, gray, [node.x-player_size/2, node.y-player_size/2, player_size, player_size])
+        draw_square(gray, node.x, node.y, player_size)
         if node.child is None:
             break
         else:
             node = node.child
-
-    if step % 5 == 0:
-        head.move(direction, dist=player_size)
 
     # Draw expanded points on the snake (and add new child if expanded point hits tail)
     remove_point = None
@@ -114,25 +154,17 @@ while running:
 
     # DRAW FOOD
     pygame.draw.rect(screen, gray, [food_x-(food_size/2), food_y-(food_size/2), food_size, food_size])
+    pygame.draw.rect(screen, (0, 0, 0), [food_x, food_y, 1, 1])
 
     # EATING
     if abs(head.x - food_x) < player_size/2+1 and abs(head.y - food_y) < player_size/2+1:
         expand_points.append((head.x, head.y))
         food_x, food_y = random_food()
 
-    # BORDERS
-    for x in range(5, w+15, 10):
-        pygame.draw.rect(screen, gray, [x, 5, 8, 8])
-        pygame.draw.rect(screen, gray, [x, h+15, 8, 8])
-
-    for x in range(5, h+15, 10):
-        pygame.draw.rect(screen, gray, [5, x, 8, 8])
-        pygame.draw.rect(screen, gray, [w+15, x, 8, 8])
-
-    pygame.draw.rect(screen, gray, [w+15, h + 15, 8, 8])
-
     pygame.display.flip()
     step = step + 1
+
+
 
 pygame.quit()
 
