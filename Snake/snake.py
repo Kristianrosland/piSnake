@@ -49,29 +49,38 @@ class Node:
         self.x = new_x
         self.y = new_y
 
+    def all_positions(self, position_list=None):
+        if position_list is None:
+            position_list = []
+        position_list.append((self.x, self.y))
+        if self.child is not None:
+            self.child.all_positions(position_list)
+        return position_list
+
 
 def random_food():
-    return randint(2, (w / food_size) - 1) * food_size, randint(2, (h / food_size) - 1) * food_size
+    return (player_size/2) + randint(0, int(w/player_size)-1)*player_size, (player_size/2) + randint(0, int(h/player_size)-1)*player_size,
 
 
 def snake():
-    t3 = Node(w / 2 - 3 * player_size, h / 2)
-    t2 = Node(w / 2 - 2 * player_size, h / 2, t3)
-    t1 = Node(w / 2 - 1 * player_size, h / 2, t2)
-    return Node(w / 2, h / 2, t1)
+    start_w, start_h = (player_size/2)+int(w/player_size)/2*player_size, (player_size/2)+int(h/player_size)/2*player_size
+    t3 = Node(start_w - 3 * player_size, start_h)
+    t2 = Node(start_w - 2 * player_size, start_h, t3)
+    t1 = Node(start_w - 1 * player_size, start_h, t2)
+    return Node(start_w, start_h, t1)
 
 
-def draw_square(color, x, y, size):
-    pygame.draw.rect(screen, color, [x-size/2, y-size/2, size, size])
+def draw_square(color, x, y, height, width=None):
+    if width is None:
+        width = height
+    pygame.draw.rect(screen, color, [x-width/2, y-height/2, width, height])
 
 
 pygame.init()
-w, h = 800, 600
-screen = pygame.display.set_mode((w+60, h+60))
-player_size = 16
-expanded_size = 20
-food_size = 16
-border = 10
+w, h = 810, 630
+screen = pygame.display.set_mode((w, h))
+player_size = 18
+expanded_size = 22
 
 running = 1
 direction = Direction.RIGHT
@@ -79,27 +88,18 @@ head = snake()
 food_x, food_y = random_food()
 expand_points = []
 step = 0
+score = 0
 pause = False
 dead = False
 
 # Colors
 green = (172, 184, 80)
 gray = (101, 81, 38)
+font = pygame.font.SysFont("monospace", 40, True)
 
 while running:
     # BACKGROUND
     screen.fill(green)
-
-    # BORDERS
-    for x in range(10, w+60-border-10, 12):
-        pygame.draw.rect(screen, gray, [x, 10, border, border])
-        pygame.draw.rect(screen, gray, [x, h+60-border-10, border, border])
-
-    for x in range(10, h+60-border-10, 12):
-        pygame.draw.rect(screen, gray, [10, x, border, border])
-        pygame.draw.rect(screen, gray, [w+60-border-10, x, border, border])
-
-    pygame.draw.rect(screen, gray, [w+60-border-10, h + 60 - border - 10, border, border])
 
     if dead:
         running = 1
@@ -108,8 +108,10 @@ while running:
         food_x, food_y = random_food()
         expand_points = []
         step = 0
+        score = 0
         pause = False
         dead = False
+        new_food = True
 
     for event in pygame.event.get():
         if event.type == QUIT:
@@ -130,13 +132,26 @@ while running:
 
     if step % 5 == 0 and not pause:
         head.move(direction, dist=player_size)
-        if head.x <= 30 or head.x >= w or head.y <= 30 or head.y >= h:
+        if head.x <= 0:
+            head.x = w - player_size/2
+        elif head.x >= w:
+            head.x = player_size/2
+        if head.y <= 0:
+            head.y = h - player_size/2
+        elif head.y >= h:
+            head.y = player_size/2
+
+        # Check if crash with tail
+        all_positions = head.child.all_positions()
+        if (head.x, head.y) in all_positions:
             dead = True
+            continue
 
     # DRAW SNAKE
     node = head
     while node is not None:
         draw_square(gray, node.x, node.y, player_size)
+
         if node.child is None:
             break
         else:
@@ -153,18 +168,22 @@ while running:
         expand_points = [x for x in expand_points if not x == remove_point]
 
     # DRAW FOOD
-    pygame.draw.rect(screen, gray, [food_x-(food_size/2), food_y-(food_size/2), food_size, food_size])
-    pygame.draw.rect(screen, (0, 0, 0), [food_x, food_y, 1, 1])
+    draw_square(gray, food_x, food_y, player_size)
+    draw_square(green, food_x, food_y, player_size / 3)
+    for i in {-1, 1}:
+        for j in {-1, 1}:
+            draw_square(green, food_x + (i*player_size/3), food_y + (j*player_size/3), player_size/3)
 
     # EATING
     if abs(head.x - food_x) < player_size/2+1 and abs(head.y - food_y) < player_size/2+1:
         expand_points.append((head.x, head.y))
         food_x, food_y = random_food()
+        score += 1
 
+    score_label = font.render(str(score), 1, gray)
+    screen.blit(score_label, (w-20-(len(str(score))*20), 10))
     pygame.display.flip()
     step = step + 1
-
-
 
 pygame.quit()
 
